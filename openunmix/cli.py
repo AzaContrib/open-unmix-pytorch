@@ -200,3 +200,7 @@ def separate():
                     torch.squeeze(estimate).to("cpu"),
                     sample_rate=separator.sample_rate,
                 )
+
+
+if __name__ == "__main__":
+    separate()
