@@ -8,6 +8,8 @@ import torch.utils.data
 import torchaudio
 import tqdm
 
+from hypy_utils.tqdm_utils import tmap
+
 
 def load_info(path: str) -> dict:
     """Load audio metadata
@@ -22,9 +24,6 @@ def load_info(path: str) -> dict:
 
     """
     # get length of file in samples
-    if torchaudio.get_audio_backend() == "sox":
-        raise RuntimeError("Deprecated backend is not supported")
-
     info = {}
     si = torchaudio.info(str(path))
     info["samplerate"] = si.sample_rate
@@ -55,14 +54,14 @@ def load_audio(
     if dur is None:
         # we ignore the case where start!=0 and dur=None
         # since we have to deal with fixed length audio
-        sig, rate = torchaudio.load(path)
+        sig, rate = torchaudio.load(str(path))
         return sig, rate
     else:
         if info is None:
             info = load_info(path)
         num_frames = int(dur * info["samplerate"])
         frame_offset = int(start * info["samplerate"])
-        sig, rate = torchaudio.load(path, num_frames=num_frames, frame_offset=frame_offset)
+        sig, rate = torchaudio.load(str(path), num_frames=num_frames, frame_offset=frame_offset)
         return sig, rate
 
 
@@ -830,8 +829,15 @@ class MUSDBDataset(UnmixDataset):
             **kwargs,
         )
         self.sample_rate = 44100.0  # musdb is fixed sample rate
-
+        
+        # Cache getitem_raw
+        self.items = list(tmap(self.getitem_raw, range(len(self.mus.tracks) * self.samples_per_track), desc="Caching dataset"))
+        
     def __getitem__(self, index):
+        # get the cached item
+        return self.items[index]
+
+    def getitem_raw(self, index):
         audio_sources = []
         target_ind = None
 
@@ -925,8 +931,6 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=16)
 
     args, _ = parser.parse_known_args()
-
-    torchaudio.set_audio_backend(args.audio_backend)
 
     train_dataset, valid_dataset, args = load_datasets(parser, args)
     print("Audio Backend: ", torchaudio.get_audio_backend())
