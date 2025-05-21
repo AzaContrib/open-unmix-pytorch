@@ -115,10 +115,6 @@ def separate():
         help="Enable log messages",
     )
     args = parser.parse_args()
-
-    if args.audio_backend != "stempeg" and args.audio_backend is not None:
-        torchaudio.set_audio_backend(args.audio_backend)
-
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     if args.verbose:
