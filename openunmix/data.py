@@ -1,4 +1,5 @@
 import argparse
+import os
 import random
 from pathlib import Path
 from typing import Optional, Union, Tuple, List, Any, Callable
@@ -7,6 +8,7 @@ import torch
 import torch.utils.data
 import torchaudio
 import tqdm
+from tqdm.contrib.concurrent import process_map, thread_map
 
 
 def load_info(path: str) -> dict:
@@ -828,6 +830,8 @@ class MUSDBDataset(UnmixDataset):
         )
         self.sample_rate = 44100.0  # musdb is fixed sample rate
         self.source_cache = {}
+        thread_map(self.__getitem__, range(len(self.mus.tracks) * self.samples_per_track), 
+                   max_workers=os.cpu_count() - 1, desc="Preloading dataset", chunk_size=10)
     
     def load_source(self, track, source):
         if track not in self.source_cache:
@@ -859,7 +863,7 @@ class MUSDBDataset(UnmixDataset):
                 # random start position
                 chunk_start = random.uniform(0, track.duration - self.seq_duration)
                 # get a view of the audio chunk
-                audio = audio[int(chunk_start * self.sample_rate) : int((chunk_start + self.seq_duration) * self.sample_rate)]
+                audio = audio[:, int(chunk_start * self.sample_rate) : int((chunk_start + self.seq_duration) * self.sample_rate)]
                 
                 # apply source_augmentations
                 audio = self.source_augmentations(audio)
