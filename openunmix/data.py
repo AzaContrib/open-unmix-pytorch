@@ -8,8 +8,6 @@ import torch.utils.data
 import torchaudio
 import tqdm
 
-from hypy_utils.tqdm_utils import tmap
-
 
 def load_info(path: str) -> dict:
     """Load audio metadata
@@ -829,15 +827,16 @@ class MUSDBDataset(UnmixDataset):
             **kwargs,
         )
         self.sample_rate = 44100.0  # musdb is fixed sample rate
-        
-        # Cache getitem_raw
-        self.items = list(tmap(self.getitem_raw, range(len(self.mus.tracks) * self.samples_per_track), desc="Caching dataset"))
-        
-    def __getitem__(self, index):
-        # get the cached item
-        return self.items[index]
+        self.source_cache = {}
+    
+    def load_source(self, track, source):
+        if track not in self.source_cache:
+            self.source_cache[track] = {}
+        if source not in self.source_cache[track]:
+            self.source_cache[track][source] = torch.as_tensor(track.sources[source].audio.T, dtype=torch.float32)
+        return self.source_cache[track][source]
 
-    def getitem_raw(self, index):
+    def __getitem__(self, index):
         audio_sources = []
         target_ind = None
 
@@ -856,12 +855,11 @@ class MUSDBDataset(UnmixDataset):
                     track = random.choice(self.mus.tracks)
 
                 # set the excerpt duration
-
                 track.chunk_duration = self.seq_duration
                 # set random start position
                 track.chunk_start = random.uniform(0, track.duration - self.seq_duration)
                 # load source audio and apply time domain source_augmentations
-                audio = torch.as_tensor(track.sources[source].audio.T, dtype=torch.float32)
+                audio = self.load_source(track, source)
                 audio = self.source_augmentations(audio)
                 audio_sources.append(audio)
 
