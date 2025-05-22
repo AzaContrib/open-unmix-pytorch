@@ -831,7 +831,8 @@ class MUSDBDataset(UnmixDataset):
         self.sample_rate = 44100.0  # musdb is fixed sample rate
         self.source_cache = {}
         thread_map(self.__getitem__, range(len(self.mus.tracks) * self.samples_per_track), 
-                   max_workers=os.cpu_count() - 1, desc="Preloading dataset", chunk_size=10)
+                   max_workers=os.cpu_count() - 1, desc="Preloading dataset", 
+                   position=0, leave=True, chunksize=10, tqdm_class=tqdm.tqdm)
     
     def load_source(self, track, source):
         if track not in self.source_cache:
