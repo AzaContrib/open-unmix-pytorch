@@ -854,12 +854,14 @@ class MUSDBDataset(UnmixDataset):
                 if self.random_track_mix:
                     track = random.choice(self.mus.tracks)
 
-                # set the excerpt duration
-                track.chunk_duration = self.seq_duration
-                # set random start position
-                track.chunk_start = random.uniform(0, track.duration - self.seq_duration)
-                # load source audio and apply time domain source_augmentations
+                # load source audio (cached)
                 audio = self.load_source(track, source)
+                # random start position
+                chunk_start = random.uniform(0, track.duration - self.seq_duration)
+                # get a view of the audio chunk
+                audio = audio[int(chunk_start * self.sample_rate) : int((chunk_start + self.seq_duration) * self.sample_rate)]
+                
+                # apply source_augmentations
                 audio = self.source_augmentations(audio)
                 audio_sources.append(audio)
 
